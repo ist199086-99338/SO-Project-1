@@ -371,7 +371,8 @@ int iterate_blocks(inode_t inode, int current, int end, int (*foo)(int block)) {
         return -1;
     while (current < end) {
         // maybe check if the block isn't free?
-        foo(&direct_block);
+        if (foo(&direct_block) == -1)
+            return -1; // Oh no, something went wrong.
         direct_block += sizeof(int);
         current++;
     }
