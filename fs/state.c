@@ -353,17 +353,14 @@ open_file_entry_t *get_open_file_entry(int fhandle) {
         (int) 0 OK, -1 error
 */
 int iterate_blocks(inode_t inode, int current, int end, int (*foo)(int block)) {
-    if (current < 10) { // The first block to access is on the first 10 blocks,
-                        // which can be accessed directly
-        while (current < 10) {
-            if (foo(inode.i_data_direct_blocks[current++]) == -1) {
-                return -1;
-            }
+    // The first block to access is on the first 10 blocks,
+    // which can be accessed directly
+    while (current < 10) {
+        if (foo(inode.i_data_direct_blocks[current++]) == -1) {
+            return -1;
         }
     }
 
-    end -= current;
-    current = 0;
     // iterate throw direct block on indirect block
     // Get indirect block data to access direct block
     int *direct_block = data_block_get(inode.i_data_indirect_block);
