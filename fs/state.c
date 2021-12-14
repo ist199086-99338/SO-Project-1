@@ -111,7 +111,7 @@ int inode_create(inode_type n_type) {
                 }
 
                 inode_table[inumber].i_size = BLOCK_SIZE;
-                inode_table[inumber].i_data_direct_blocks[0] = b;
+                inode_table[inumber].i_data_block = b;
 
                 dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(b);
                 if (dir_entry == NULL) {
@@ -125,8 +125,7 @@ int inode_create(inode_type n_type) {
             } else {
                 /* In case of a new file, simply sets its size to 0 */
                 inode_table[inumber].i_size = 0;
-                // TODO: iterate? maybe idk
-                inode_table[inumber].i_data_direct_blocks[0] = -1;
+                inode_table[inumber].i_data_block = -1;
             }
             return inumber;
         }
@@ -152,9 +151,7 @@ int inode_delete(int inumber) {
     freeinode_ts[inumber] = FREE;
 
     if (inode_table[inumber].i_size > 0) {
-        // TODO: iterate - safety check
-        if (data_block_free(inode_table[inumber].i_data_direct_blocks[0]) ==
-            -1) {
+        if (data_block_free(inode_table[inumber].i_data_block) == -1) {
             return -1;
         }
     }
@@ -203,8 +200,8 @@ int add_dir_entry(int inumber, int sub_inumber, char const *sub_name) {
     }
 
     /* Locates the block containing the directory's entries */
-    dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(
-        inode_table[inumber].i_data_direct_blocks[0]);
+    dir_entry_t *dir_entry =
+        (dir_entry_t *)data_block_get(inode_table[inumber].i_data_block);
     if (dir_entry == NULL) {
         return -1;
     }
@@ -236,8 +233,8 @@ int find_in_dir(int inumber, char const *sub_name) {
     }
 
     /* Locates the block containing the directory's entries */
-    dir_entry_t *dir_entry = (dir_entry_t *)data_block_get(
-        inode_table[inumber].i_data_direct_blocks[0]);
+    dir_entry_t *dir_entry =
+        (dir_entry_t *)data_block_get(inode_table[inumber].i_data_block);
     if (dir_entry == NULL) {
         return -1;
     }
@@ -342,4 +339,42 @@ open_file_entry_t *get_open_file_entry(int fhandle) {
         return NULL;
     }
     return &open_file_table[fhandle];
+}
+
+/*
+    Iterates data blocks, applying the effect of a given function
+    Inputs:
+        - inode: inode to iterate the blocks of
+        - current: index of the block to start iteration
+        - end: index of the block to end iteration
+        - f: function to call on each loop, it accepts the iteration block
+             as argument
+    Return:
+        (int) 0 OK, -1 error
+*/
+int iterate_blocks(inode_t inode, int current, int end, int (*foo)(int block)) {
+    if (current < 10) { // The first block to access is on the first 10 blocks,
+                        // which can be accessed directly
+        while (current < 10) {
+            if (foo(inode.i_data_direct_blocks[current++]) == -1) {
+                return -1;
+            }
+        }
+    }
+
+    end -= current;
+    current = 0;
+    // iterate throw direct block on indirect block
+    // Get indirect block data to access direct block
+    int *direct_block = data_block_get(inode.i_data_indirect_block);
+    if (direct_block != NULL)
+        return -1;
+    while (current < end) {
+        // maybe check if the block isn't free?
+        foo(&direct_block);
+        direct_block += sizeof(int);
+        current++;
+    }
+
+    return 0;
 }
