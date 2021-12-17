@@ -158,10 +158,6 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         to_read = len;
     }
 
-    if (file->of_offset + to_read >= BLOCK_SIZE) {
-        return -1;
-    }
-
     if (to_read > 0) {
         // TODO: iterate - safety check
         void *block = data_block_get(inode->i_data_direct_blocks);
