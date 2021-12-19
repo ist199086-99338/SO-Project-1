@@ -55,10 +55,11 @@ int tfs_open(char const *name, int flags) {
 
         /* Trucate (if requested) */
         if (flags & TFS_O_TRUNC) {
-            if (inode->i_size > 0) { // TODO: ITERATE
-                if (data_block_free(inode->i_data_direct_blocks[0]) == -1) {
+            if (inode->i_size > 0) {
+                if (iterate_blocks(*inode, 0,
+                                   (int)(inode->i_size / BLOCK_SIZE) + 1,
+                                   &free_block_aux) == -1)
                     return -1;
-                }
                 inode->i_size = 0;
             }
         }
@@ -109,17 +110,20 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     }
 
     /* Determine how many bytes to write */
+    // TODO: correct to_write considering the new block maximum
     if (to_write + file->of_offset > BLOCK_SIZE) {
         to_write = BLOCK_SIZE - file->of_offset;
     }
 
     if (to_write > 0) {
         if (inode->i_size == 0) {
-            /* If empty file, allocate new block */
-            // TODO: iterate? or allocate just 1 for now?
-            inode->i_data_direct_blocks[0] = data_block_alloc();
+            /* If empty file, allocate new blocks */
+            if (iterate_blocks(*inode, 0, (int)(to_write / BLOCK_SIZE) + 1,
+                               &allocate_block_aux) == -1)
+                return -1;
         }
 
+        // -- below is not refactored yet --
         // TODO: iterate - safety check
         void *block = data_block_get(inode->i_data_direct_blocks);
         if (block == NULL) {

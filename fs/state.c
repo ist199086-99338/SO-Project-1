@@ -136,8 +136,6 @@ int inode_create(inode_type n_type) {
     return -1;
 }
 
-int free_block_aux(int block) { return data_block_free(block); }
-
 /*
  * Deletes the i-node.
  * Input:
@@ -340,24 +338,49 @@ open_file_entry_t *get_open_file_entry(int fhandle) {
 }
 
 /*
-    Iterates data blocks, applying the effect of a given function
-    Inputs:
-        - inode: inode to iterate the blocks of
-        - current: index of the block to start iteration
-        - end: index of the block to end iteration
-        - f: function to call on each loop, it accepts the iteration block
-             as argument
-    Return:
-        (int) 0 OK, -1 error
-*/
-int iterate_blocks(inode_t inode, int current, int end, int (*foo)(int block)) {
+ * Attempts to free a block, given its index
+ * Inputs:
+ *   - block: pointer to the index of the block to free
+ * Returns: 0 if successful, -1 otherwise
+ */
+int free_block_aux(int *block) { return data_block_free(*block); }
+
+/*
+ * Assigns an index to a given block index pointer
+ * Inputs:
+ *   - block: pointer to the index of the block to allocate
+ * Returns: 0 if successful, -1 otherwise
+ */
+int allocate_block_aux(int *block) {
+    *block = data_block_alloc();
+
+    // Safety check for lack of memory
+    if (*block == -1)
+        return -1;
+
+    return 0;
+}
+
+/*
+ *  Iterates data blocks, applying the effect of a given function
+ *  Inputs:
+ *      - inode: inode to iterate the blocks of
+ *      - current: index of the block to start iteration
+ *      - end: index of the block to end iteration
+ *      - f: function to call on each loop, it accepts the iteration block
+ *           pointer as argument
+ *  Returns:
+ *      (int) 0 OK, -1 error
+ */
+int iterate_blocks(inode_t inode, int current, int end,
+                   int (*foo)(int *block)) {
     if (current > end)
         return -1;
 
     // The first block to access is on the first 10 blocks,
     // which can be accessed directly
     while (current < 10) {
-        if (foo(inode.i_data_direct_blocks[current++]) == -1) {
+        if (foo(&inode.i_data_direct_blocks[current++]) == -1) {
             return -1;
         }
     }
@@ -369,7 +392,7 @@ int iterate_blocks(inode_t inode, int current, int end, int (*foo)(int block)) {
         return -1;
     while (current < end) {
         // maybe check if the block isn't free?
-        if (foo(*direct_block) == -1)
+        if (foo(direct_block) == -1)
             return -1; // Oh no, something went wrong.
         direct_block += sizeof(int);
         current++;
