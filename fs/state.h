@@ -49,7 +49,7 @@ inode_t *inode_get(int inumber);
 
 int free_block_aux(int *block);
 int allocate_block_aux(int *block);
-int iterate_blocks(inode_t inode, int start, int end, int (*f)(int *block));
+int iterate_blocks(inode_t *inode, int start, int end, int (*f)(int *block));
 
 int clear_dir_entry(int inumber, int sub_inumber);
 int add_dir_entry(int inumber, int sub_inumber, char const *sub_name);

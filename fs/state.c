@@ -153,7 +153,7 @@ int inode_delete(int inumber) {
 
     freeinode_ts[inumber] = FREE;
 
-    return iterate_blocks(inode_table[inumber], 0,
+    return iterate_blocks(&inode_table[inumber], 0,
                           (int)(inode_table[inumber].i_size / BLOCK_SIZE) + 1,
                           &free_block_aux);
 }
@@ -343,7 +343,10 @@ open_file_entry_t *get_open_file_entry(int fhandle) {
  *   - block: pointer to the index of the block to free
  * Returns: 0 if successful, -1 otherwise
  */
-int free_block_aux(int *block) { return data_block_free(*block); }
+int free_block_aux(int *block) {
+    printf("Hello!");
+    return data_block_free(*block);
+}
 
 /*
  * Assigns an index to a given block index pointer
@@ -372,22 +375,28 @@ int allocate_block_aux(int *block) {
  *  Returns:
  *      (int) 0 OK, -1 error
  */
-int iterate_blocks(inode_t inode, int current, int end,
+int iterate_blocks(inode_t *inode, int current, int end,
                    int (*foo)(int *block)) {
     if (current > end)
         return -1;
 
     // The first block to access is on the first 10 blocks,
     // which can be accessed directly
-    while (current < 10) {
-        if (foo(&inode.i_data_direct_blocks[current++]) == -1) {
+    while (current < 10 && current < end) {
+        if (foo(&inode->i_data_direct_blocks[current++]) == -1) {
             return -1;
         }
     }
 
     // iterate throw direct block on indirect block
     // Get indirect block data to access direct block
-    int *direct_block = (int *)data_block_get(inode.i_data_indirect_block);
+    if (end < 10)
+        return 0;
+
+    if (inode->i_data_indirect_block == -1)
+        if ((inode->i_data_indirect_block = data_block_alloc()) == -1)
+            return -1;
+    int *direct_block = (int *)data_block_get(inode->i_data_indirect_block);
     if (direct_block == NULL)
         return -1;
     while (current < end) {
