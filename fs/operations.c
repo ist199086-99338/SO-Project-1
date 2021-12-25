@@ -123,10 +123,11 @@ int write_to_block(size_t *of_offset, int initial_offset, size_t *to_write,
 }
 
 int read_from_block(int initial_offset, size_t *to_read, void *block,
-                    void const *buffer) {
+                    void *buffer) {
     /* Perform the actual write */
-    size_t to_read_from_block =
-        (size_t)((int)*to_read % BLOCK_SIZE - initial_offset);
+    size_t to_read_from_block = (*to_read > BLOCK_SIZE)
+                                    ? (size_t)(BLOCK_SIZE - initial_offset)
+                                    : (size_t)((int)*to_read - initial_offset);
 
     *to_read -= to_read_from_block;
 
@@ -261,7 +262,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
             }
 
             if (read_from_block(initial_offset, &to_read_remaining, block,
-                                buffer) == -1)
+                                &buffer) == -1)
                 return -1;
 
             initial_offset = 0;
@@ -290,7 +291,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
             }
 
             if (read_from_block(initial_offset, &to_read_remaining, block,
-                                buffer) == -1)
+                                &buffer) == -1)
                 return -1; // Hol up, wait a minute, something aint right.
             indirect_block += sizeof(int);
 
