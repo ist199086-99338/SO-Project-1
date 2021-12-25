@@ -98,29 +98,47 @@ int tfs_open(char const *name, int flags) {
 
 int tfs_close(int fhandle) { return remove_from_open_file_table(fhandle); }
 
-int write_to_block(size_t *of_offset, int initial_offset, size_t to_write,
+int write_to_block(size_t *of_offset, int initial_offset, size_t *to_write,
                    void *block, void const *buffer, inode_t *inode) {
     /* Perform the actual write */
-    size_t to_write_in_block =
-        (size_t)((int)to_write % BLOCK_SIZE - initial_offset);
+    // size_t to_write_in_block =
+    //     (size_t)((int)to_write % BLOCK_SIZE - initial_offset);
 
+    size_t to_write_in_block = (*to_write > BLOCK_SIZE)
+                                   ? (size_t)(BLOCK_SIZE - initial_offset)
+                                   : (size_t)((int)*to_write - initial_offset);
+
+    *to_write -= to_write_in_block;
     memcpy(block + initial_offset, buffer, to_write_in_block);
-    buffer += to_write;
+    buffer += to_write_in_block;
 
     /* The offset associated with the file handle is
      * incremented accordingly */
-    *of_offset += to_write;
+    *of_offset += to_write_in_block;
     if ((size_t)*of_offset > inode->i_size) {
         inode->i_size = (size_t)*of_offset;
     }
 
-    initial_offset = 0;
+    return 0;
+}
+
+int read_from_block(int initial_offset, size_t *to_read, void *block,
+                    void const *buffer) {
+    /* Perform the actual write */
+    size_t to_read_from_block =
+        (size_t)((int)*to_read % BLOCK_SIZE - initial_offset);
+
+    *to_read -= to_read_from_block;
+
+    memcpy(&buffer, block + initial_offset, to_read_from_block);
+    buffer += to_read_from_block;
 
     return 0;
 }
 
 ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     open_file_entry_t *file = get_open_file_entry(fhandle);
+    // size_t inittial_offset = file->of_offset;
     if (file == NULL) {
         return -1;
     }
@@ -137,6 +155,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     //    to_write = BLOCK_SIZE - file->of_offset;
     //}
 
+    size_t to_write_remaining = to_write;
     if (to_write > 0) {
         if (inode->i_size == 0) {
             /* If empty file, allocate new blocks */
@@ -160,8 +179,8 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
                 return -1;
             }
 
-            if (write_to_block(&file->of_offset, initial_offset, to_write,
-                               block, buffer, inode) == -1)
+            if (write_to_block(&file->of_offset, initial_offset,
+                               &to_write_remaining, block, buffer, inode) == -1)
                 return -1;
 
             initial_offset = 0;
@@ -189,8 +208,8 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
                 return -1;
             }
 
-            if (write_to_block(&file->of_offset, initial_offset, to_write,
-                               block, buffer, inode) == -1)
+            if (write_to_block(&file->of_offset, initial_offset,
+                               &to_write_remaining, block, buffer, inode) == -1)
                 return -1; // Hol up, wait a minute, something aint right.
             indirect_block += sizeof(int);
 
@@ -198,6 +217,10 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             current++;
         }
     }
+
+    // Increment i_size only of to_write plus offset is bigger then i_size
+    // if (to_write > (inode->i_size - inittial_offset))
+    //    inode->i_size = to_write - (inode->i_size - inittial_offset);
 
     return (ssize_t)to_write;
 }
@@ -220,18 +243,60 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         to_read = len;
     }
 
+    size_t to_read_remaining = to_read;
     if (to_read > 0) {
-        // TODO: iterate - safety check
-        void *block = data_block_get(*inode->i_data_direct_blocks);
-        if (block == NULL) {
-            return -1;
+        int current = ((int)file->of_offset / BLOCK_SIZE);
+        int end = current + ((int)to_read / BLOCK_SIZE) + 1;
+        int initial_offset = (int)file->of_offset % BLOCK_SIZE;
+
+        while (current < 10 && current < end) {
+            if (inode->i_data_direct_blocks[current] == -1)
+                if ((inode->i_data_direct_blocks[current] =
+                         data_block_alloc()) == -1)
+                    return -1;
+
+            void *block = data_block_get(inode->i_data_direct_blocks[current]);
+            if (block == NULL) {
+                return -1;
+            }
+
+            if (read_from_block(initial_offset, &to_read_remaining, block,
+                                buffer) == -1)
+                return -1;
+
+            initial_offset = 0;
+            current++;
         }
 
-        /* Perform the actual read */
-        memcpy(buffer, block + file->of_offset, to_read);
-        /* The offset associated with the file handle is
-         * incremented accordingly */
-        file->of_offset += to_read;
+        // iterate throw direct block on indirect block
+        // Get indirect block data to access direct block
+
+        // Check if the inode has an indirect block allocated
+        if (inode->i_data_indirect_block == -1)
+            if ((inode->i_data_indirect_block = data_block_alloc()) == -1)
+                return -1;
+
+        int *indirect_block =
+            (int *)data_block_get(inode->i_data_indirect_block);
+        if (indirect_block == NULL)
+            return -1;
+
+        while (current < end) {
+            int indirection_block_index = *(((int *)indirect_block));
+
+            void *block = data_block_get(indirection_block_index);
+            if (block == NULL) {
+                return -1;
+            }
+
+            if (read_from_block(initial_offset, &to_read_remaining, block,
+                                buffer) == -1)
+                return -1; // Hol up, wait a minute, something aint right.
+            indirect_block += sizeof(int);
+
+            initial_offset = 0;
+            current++;
+        }
     }
 
     return (ssize_t)to_read;

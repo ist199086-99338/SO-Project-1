@@ -454,6 +454,7 @@ int main() {
         "djkskdkssjdksdjakdjkskdkssjdksdjakdjkskdkssjdksdjakdjkskdkssjdksdjakdj"
         "kskdkssjdksdjakdjdjkdjdjksdjakdjkskdkssjdksdjakdjdjkdjdj";
     char *path = "/f1";
+    char *read = "";
 
     assert(tfs_init() != -1);
 
@@ -464,6 +465,14 @@ int main() {
 
     r = tfs_write(f, str, strlen(str));
     assert(r == strlen(str));
+
+    r = tfs_close(f);
+
+    f = tfs_open(path, 0);
+
+    r = tfs_read(f, read, strlen(str));
+    assert(r == strlen(str));
+    assert(strcmp(str, read) == 0);
 
     assert(tfs_close(f) != -1);
 
