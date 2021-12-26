@@ -99,7 +99,8 @@ int tfs_open(char const *name, int flags) {
 int tfs_close(int fhandle) { return remove_from_open_file_table(fhandle); }
 
 int write_to_block(size_t *of_offset, int initial_offset, size_t *to_write,
-                   void *block, void const *buffer, inode_t *inode) {
+                   void *block, void const *buffer, size_t buffer_offset,
+                   inode_t *inode) {
     /* Perform the actual write */
     // size_t to_write_in_block =
     //     (size_t)((int)to_write % BLOCK_SIZE - initial_offset);
@@ -109,8 +110,7 @@ int write_to_block(size_t *of_offset, int initial_offset, size_t *to_write,
                                    : (size_t)((int)*to_write - initial_offset);
 
     *to_write -= to_write_in_block;
-    memcpy(block + initial_offset, buffer, to_write_in_block);
-    buffer += to_write_in_block;
+    memcpy(block + initial_offset, buffer + buffer_offset, to_write_in_block);
 
     /* The offset associated with the file handle is
      * incremented accordingly */
@@ -122,24 +122,22 @@ int write_to_block(size_t *of_offset, int initial_offset, size_t *to_write,
     return 0;
 }
 
-int read_from_block(int initial_offset, size_t *to_read, void *block,
-                    void *buffer) {
+int read_from_block(int offset, size_t *to_read, void *block, void *buffer,
+                    size_t buffer_offset) {
     /* Perform the actual write */
     size_t to_read_from_block = (*to_read > BLOCK_SIZE)
-                                    ? (size_t)(BLOCK_SIZE - initial_offset)
-                                    : (size_t)((int)*to_read - initial_offset);
+                                    ? (size_t)(BLOCK_SIZE - offset)
+                                    : (size_t)((int)*to_read - offset);
 
     *to_read -= to_read_from_block;
 
-    memcpy(&buffer, block + initial_offset, to_read_from_block);
-    buffer += to_read_from_block;
+    memcpy(buffer + buffer_offset, block + offset, to_read_from_block);
 
     return 0;
 }
 
 ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     open_file_entry_t *file = get_open_file_entry(fhandle);
-    // size_t inittial_offset = file->of_offset;
     if (file == NULL) {
         return -1;
     }
@@ -149,12 +147,6 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     if (inode == NULL) {
         return -1;
     }
-
-    /* Determine how many bytes to write */
-    // TODO: correct to_write considering the new block maximum
-    // if (to_write + file->of_offset > BLOCK_SIZE) {
-    //    to_write = BLOCK_SIZE - file->of_offset;
-    //}
 
     size_t to_write_remaining = to_write;
     if (to_write > 0) {
@@ -181,7 +173,8 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             }
 
             if (write_to_block(&file->of_offset, initial_offset,
-                               &to_write_remaining, block, buffer, inode) == -1)
+                               &to_write_remaining, block, buffer,
+                               to_write - to_write_remaining, inode) == -1)
                 return -1;
 
             initial_offset = 0;
@@ -210,7 +203,8 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             }
 
             if (write_to_block(&file->of_offset, initial_offset,
-                               &to_write_remaining, block, buffer, inode) == -1)
+                               &to_write_remaining, block, buffer,
+                               to_write - to_write_remaining, inode) == -1)
                 return -1; // Hol up, wait a minute, something aint right.
             indirect_block += sizeof(int);
 
@@ -262,7 +256,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
             }
 
             if (read_from_block(initial_offset, &to_read_remaining, block,
-                                &buffer) == -1)
+                                buffer, to_read - to_read_remaining) == -1)
                 return -1;
 
             initial_offset = 0;
@@ -291,7 +285,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
             }
 
             if (read_from_block(initial_offset, &to_read_remaining, block,
-                                &buffer) == -1)
+                                buffer, to_read - to_read_remaining) == -1)
                 return -1; // Hol up, wait a minute, something aint right.
             indirect_block += sizeof(int);
 
