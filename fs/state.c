@@ -409,3 +409,67 @@ int iterate_blocks(inode_t *inode, int current, int end,
 
     return 0;
 }
+
+/*
+    Writes data on block
+    Inputs:
+        - of_offset: Offset of the file handle
+        - block_offset: Where in the block to start writting
+        - to_write: Amount of data to write in block
+        - block: Block to write on
+        - buffer: Input buffer
+        - buffer_offset: Offset in the buffer to start reading from
+        - inode: inode
+    Output:
+        0: Everything went fine
+        -1: Error
+*/
+int write_to_block(size_t *of_offset, int block_offset, size_t *to_write,
+                   void *block, void const *buffer, size_t buffer_offset,
+                   inode_t *inode) {
+    /* Perform the actual write */
+    // size_t to_write_in_block =
+    //     (size_t)((int)to_write % BLOCK_SIZE - initial_offset);
+
+    size_t to_write_in_block = (*to_write > BLOCK_SIZE)
+                                   ? (size_t)(BLOCK_SIZE - block_offset)
+                                   : (size_t)((int)*to_write - block_offset);
+
+    *to_write -= to_write_in_block;
+    memcpy(block + block_offset, buffer + buffer_offset, to_write_in_block);
+
+    /* The offset associated with the file handle is
+     * incremented accordingly */
+    *of_offset += to_write_in_block;
+    if ((size_t)*of_offset > inode->i_size) {
+        inode->i_size = (size_t)*of_offset;
+    }
+
+    return 0;
+}
+
+/*
+    Reads data from block
+    Inputs:
+        - of_offset: Where in the block to start reading from
+        - to_read: Amount of data to read from block
+        - block: Block to write on
+        - buffer: Output buffer
+        - buffer_offset: Offset in the buffer to start writting on
+    Output:
+        0: Everything went fine
+        -1: Error
+*/
+int read_from_block(int offset, size_t *to_read, void *block, void *buffer,
+                    size_t buffer_offset) {
+    /* Perform the actual write */
+    size_t to_read_from_block = (*to_read > BLOCK_SIZE)
+                                    ? (size_t)(BLOCK_SIZE - offset)
+                                    : (size_t)((int)*to_read - offset);
+
+    *to_read -= to_read_from_block;
+
+    memcpy(buffer + buffer_offset, block + offset, to_read_from_block);
+
+    return 0;
+}

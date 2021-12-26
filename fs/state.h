@@ -59,6 +59,12 @@ int data_block_alloc();
 int data_block_free(int block_number);
 void *data_block_get(int block_number);
 
+int read_from_block(int offset, size_t *to_read, void *block, void *buffer,
+                    size_t buffer_offset);
+int write_to_block(size_t *of_offset, int block_offset, size_t *to_write,
+                   void *block, void const *buffer, size_t buffer_offset,
+                   inode_t *inode);
+
 int add_to_open_file_table(int inumber, size_t offset);
 int remove_from_open_file_table(int fhandle);
 open_file_entry_t *get_open_file_entry(int fhandle);
