@@ -66,6 +66,7 @@ fmt: $(SOURCES) $(HEADERS)
 # the CC, LD, CFLAGS and LDFLAGS are used in this rule
 tests/test1: tests/test1.o fs/operations.o fs/state.o
 tests/test2: tests/test2.o fs/operations.o fs/state.o
+tests/test3: tests/test3.o fs/operations.o fs/state.o
 tests/copy_to_external_errors: tests/copy_to_external_errors.o fs/operations.o fs/state.o
 tests/copy_to_external_simple: tests/copy_to_external_simple.o fs/operations.o fs/state.o
 tests/write_10_blocks_spill: tests/write_10_blocks_spill.o fs/operations.o fs/state.o

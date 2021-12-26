@@ -214,7 +214,6 @@ int main() {
     // memset(input, 'A', SIZE/2);
     // memset(input, 'A', SIZE/2);
 
-    char output[strlen(input) + 1];
     char *path = "/f1";
 
     assert(tfs_init() != -1);
@@ -225,17 +224,9 @@ int main() {
     f = tfs_open(path, TFS_O_CREAT);
 
     r = tfs_write(f, input, strlen(input) + 1);
-    assert(r == strlen(input) + 1);
-
+    assert(r != -1);
     r = tfs_close(f);
-
-    f = tfs_open(path, 0);
-
-    r = tfs_read(f, output, strlen(input) + 1);
-    assert(r == strlen(input) + 1);
-    assert(strcmp(input, output) == 0);
-
-    assert(tfs_close(f) != -1);
+    assert(r != -1);
 
     r = tfs_copy_to_external_fs(path, "./ola");
     assert(r != -1);

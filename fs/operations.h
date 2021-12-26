@@ -6,6 +6,7 @@
 #include <sys/types.h>
 
 enum {
+    TFS_O_START = 0b000,
     TFS_O_CREAT = 0b001,
     TFS_O_TRUNC = 0b010,
     TFS_O_APPEND = 0b100,

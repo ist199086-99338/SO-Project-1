@@ -98,6 +98,14 @@ int tfs_open(char const *name, int flags) {
 
 int tfs_close(int fhandle) { return remove_from_open_file_table(fhandle); }
 
+/*
+    Aborts an operation, closing the tfs file and returning -1
+*/
+int abort_operation(int fhandle) {
+    tfs_close(fhandle);
+    return -1;
+}
+
 ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     open_file_entry_t *file = get_open_file_entry(fhandle);
     if (file == NULL) {
@@ -257,4 +265,55 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
     }
 
     return (ssize_t)to_read;
+}
+
+int tfs_copy_to_external_fs(char const *source_path, char const *dest_path) {
+    // Check if source file exists
+    int inumber;
+    int fhandle;
+
+    // Open the file for reading
+    if ((fhandle = tfs_open(source_path, TFS_O_START)) == -1)
+        return -1;
+
+    if ((inumber = tfs_lookup(source_path)) == -1)
+        return abort_operation(fhandle);
+
+    /* From the open file table entry, we get the inode */
+    inode_t *inode = inode_get(inumber);
+    if (inode == NULL) {
+        return abort_operation(fhandle);
+    }
+
+    FILE *dest_file = fopen(dest_path, "w");
+    if (dest_file == NULL)
+        return abort_operation(fhandle);
+
+    // Write in dest_file
+    char *buffer;
+    buffer = malloc(inode->i_size);
+    if (buffer == NULL) {
+        fclose(dest_file);
+        return abort_operation(fhandle);
+    }
+
+    ssize_t r;
+
+    r = tfs_read(fhandle, buffer, inode->i_size);
+    if (r == -1) {
+        fclose(dest_file);
+        return abort_operation(fhandle);
+    }
+
+    if (fputs(buffer, dest_file) == -1) {
+        free(buffer);
+        fclose(dest_file);
+        return abort_operation(fhandle);
+    }
+
+    free(buffer);
+    fclose(dest_file);
+    tfs_close(fhandle);
+
+    return 0;
 }
