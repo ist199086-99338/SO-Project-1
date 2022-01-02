@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SIZE 256
 
@@ -14,6 +15,12 @@ typedef struct {
 
 void *wrapper_read(void *args) {
     tfs_read(((Args *)args)->f, ((Args *)args)->output, ((Args *)args)->len);
+
+    return NULL;
+}
+
+void *wrapper_write(void *args) {
+    tfs_write(((Args *)args)->f, ((Args *)args)->output, ((Args *)args)->len);
 
     return NULL;
 }
@@ -52,7 +59,8 @@ int main() {
         "ullamcorper ipsum rutrum nunc. Nunc nonummy metus. Vestibulum ";
 
     char output1[strlen(input) + 1];
-    char output2[strlen(input) + 1];
+    char *input2 = "Hello modafaquer";
+    char output2[9999];
     char *path = "/f1";
 
     assert(tfs_init() != -1);
@@ -70,16 +78,28 @@ int main() {
     f = tfs_open(path, 0);
 
     Args args1 = {f, output1, strlen(input) + 1};
-    Args args2 = {f, output2, strlen(input) + 1};
+    //  Args args2 = {f, output2, strlen(input) + 1};
 
-    pthread_t tid1, tid2;
-    r = pthread_create(&tid1, NULL, wrapper_read, (void *)&args1);
-    r = pthread_create(&tid2, NULL, wrapper_read, (void *)&args2);
+    Args argsw1 = {f, input2, strlen(input2) + 1};
+    Args argsw2 = {f, input2, strlen(input2) + 1};
+
+    pthread_t tid1, tid2, tid3;
+    pthread_create(&tid1, NULL, wrapper_read, (void *)&args1);
+
+    pthread_create(&tid3, NULL, wrapper_write, (void *)&argsw1);
+    pthread_create(&tid2, NULL, wrapper_write, (void *)&argsw2);
 
     pthread_join(tid1, NULL);
     pthread_join(tid2, NULL);
+    pthread_join(tid3, NULL);
 
-    assert(strcmp(output1, output2) == 0);
+    r = tfs_close(f);
+    f = tfs_open(path, 0);
+
+    tfs_read(f, output2, strlen(input2) + 1);
+    if (strcmp(input2, output2) == 0 || strcmp(input, output2) == 0) {
+        printf("%s\n", output2);
+    };
 
     assert(tfs_close(f) != -1);
 
