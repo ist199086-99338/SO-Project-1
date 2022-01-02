@@ -130,6 +130,8 @@ int inode_create(inode_type n_type) {
                 }
                 inode_table[inumber].i_data_indirect_block = -1;
             }
+
+            init_lock(&inode_table[inumber].i_lock);
             return inumber;
         }
     }
@@ -153,9 +155,16 @@ int inode_delete(int inumber) {
 
     freeinode_ts[inumber] = FREE;
 
-    return iterate_blocks(&inode_table[inumber], 0,
-                          (int)(inode_table[inumber].i_size / BLOCK_SIZE) + 1,
-                          &free_block_aux);
+    write_lock(&inode_table[inumber].i_lock);
+
+    int r = iterate_blocks(&inode_table[inumber], 0,
+                           (int)(inode_table[inumber].i_size / BLOCK_SIZE) + 1,
+                           &data_block_free);
+
+    unlock(&inode_table[inumber].i_lock);
+    destroy_lock(&inode_table[inumber].i_lock);
+
+    return r;
 }
 
 /*
@@ -269,13 +278,13 @@ int data_block_alloc() {
  * 	- the block index
  * Returns: 0 if success, -1 otherwise
  */
-int data_block_free(int block_number) {
-    if (!valid_block_number(block_number)) {
+int data_block_free(int *block_number) {
+    if (!valid_block_number(*block_number)) {
         return -1;
     }
 
     insert_delay(); // simulate storage access delay to free_blocks
-    free_blocks[block_number] = FREE;
+    free_blocks[*block_number] = FREE;
     return 0;
 }
 
@@ -335,17 +344,6 @@ open_file_entry_t *get_open_file_entry(int fhandle) {
         return NULL;
     }
     return &open_file_table[fhandle];
-}
-
-/*
- * Attempts to free a block, given its index
- * Inputs:
- *   - block: pointer to the index of the block to free
- * Returns: 0 if successful, -1 otherwise
- */
-int free_block_aux(int *block) {
-    printf("Hello!");
-    return data_block_free(*block);
 }
 
 /*
@@ -448,7 +446,7 @@ int write_to_block(size_t *of_offset, int block_offset, size_t *to_write,
     return 0;
 }
 
-/*
+/* TODO: fix comment
     Reads data from block
     Inputs:
         - of_offset: Where in the block to start reading from
@@ -462,7 +460,7 @@ int write_to_block(size_t *of_offset, int block_offset, size_t *to_write,
 */
 int read_from_block(int offset, size_t *to_read, void *block, void *buffer,
                     size_t buffer_offset) {
-    /* Perform the actual write */
+    /* Perform the actual read */
     size_t to_read_from_block = (*to_read > BLOCK_SIZE)
                                     ? (size_t)(BLOCK_SIZE - offset)
                                     : (size_t)((int)*to_read - offset);

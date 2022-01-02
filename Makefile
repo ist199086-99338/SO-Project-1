@@ -21,8 +21,9 @@ TARGET_EXECS := tests/test1 tests/copy_to_external_simple tests/copy_to_external
 vpath # clears VPATH
 vpath %.h $(INCLUDE_DIRS)
 
-CFLAGS = -std=c11 -D_POSIX_C_SOURCE=200809L
+CFLAGS = -std=c11 -D_POSIX_C_SOURCE=200809L -pthread
 CFLAGS += $(INCLUDES)
+LDFLAGS += -pthread
 
 # Warnings
 CFLAGS += -fdiagnostics-color=always -Wall -Werror -Wextra -Wcast-align -Wconversion -Wfloat-equal -Wformat=2 -Wnull-dereference -Wshadow -Wsign-conversion -Wswitch-default -Wswitch-enum -Wundef -Wunreachable-code -Wunused
@@ -67,6 +68,7 @@ fmt: $(SOURCES) $(HEADERS)
 tests/test1: tests/test1.o fs/operations.o fs/state.o
 tests/test2: tests/test2.o fs/operations.o fs/state.o
 tests/test3: tests/test3.o fs/operations.o fs/state.o
+tests/test4: tests/test4.o fs/operations.o fs/state.o
 tests/copy_to_external_errors: tests/copy_to_external_errors.o fs/operations.o fs/state.o
 tests/copy_to_external_simple: tests/copy_to_external_simple.o fs/operations.o fs/state.o
 tests/write_10_blocks_spill: tests/write_10_blocks_spill.o fs/operations.o fs/state.o

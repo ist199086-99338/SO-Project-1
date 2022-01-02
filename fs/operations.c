@@ -59,7 +59,7 @@ int tfs_open(char const *name, int flags) {
             if (inode->i_size > 0) {
                 if (iterate_blocks(inode, 0,
                                    (int)(inode->i_size / BLOCK_SIZE) + 1,
-                                   &free_block_aux) == -1)
+                                   &data_block_free) == -1)
                     return -1;
                 inode->i_size = 0;
             }
@@ -225,9 +225,13 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
                 return -1;
             }
 
+            read_lock(&inode->i_lock);
             if (read_from_block(initial_offset, &to_read_remaining, block,
-                                buffer, to_read - to_read_remaining) == -1)
+                                buffer, to_read - to_read_remaining) == -1) {
+                unlock(&inode->i_lock);
                 return -1;
+            }
+            unlock(&inode->i_lock);
 
             initial_offset = 0;
             current++;
@@ -254,9 +258,14 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
                 return -1;
             }
 
+            read_lock(&inode->i_lock);
             if (read_from_block(initial_offset, &to_read_remaining, block,
-                                buffer, to_read - to_read_remaining) == -1)
+                                buffer, to_read - to_read_remaining) == -1) {
+                unlock(&inode->i_lock);
                 return -1; // Hol up, wait a minute, something aint right.
+            }
+            unlock(&inode->i_lock);
+
             indirect_block += sizeof(int);
 
             initial_offset = 0;

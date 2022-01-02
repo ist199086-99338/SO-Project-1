@@ -2,6 +2,7 @@
 #define STATE_H
 
 #include "config.h"
+#include "lock.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +26,7 @@ typedef struct {
     size_t i_size;
     int i_data_direct_blocks[10];
     int i_data_indirect_block;
+    pthread_rwlock_t i_lock;
     /* in a real FS, more fields would exist here */
 } inode_t;
 
@@ -56,7 +58,7 @@ int add_dir_entry(int inumber, int sub_inumber, char const *sub_name);
 int find_in_dir(int inumber, char const *sub_name);
 
 int data_block_alloc();
-int data_block_free(int block_number);
+int data_block_free(int *block_number);
 void *data_block_get(int block_number);
 
 int read_from_block(int offset, size_t *to_read, void *block, void *buffer,
