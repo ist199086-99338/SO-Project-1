@@ -131,7 +131,8 @@ int inode_create(inode_type n_type) {
                 inode_table[inumber].i_data_indirect_block = -1;
             }
 
-            init_lock(&inode_table[inumber].i_lock);
+            init_rwlock(&inode_table[inumber].i_lock);
+            init_mlock(&inode_table[inumber].i_mutex_lock);
             return inumber;
         }
     }
@@ -162,7 +163,9 @@ int inode_delete(int inumber) {
                            &data_block_free);
 
     unlock(&inode_table[inumber].i_lock);
-    destroy_lock(&inode_table[inumber].i_lock);
+
+    destroy_rwlock(&inode_table[inumber].i_lock);
+    destroy_mlock(&inode_table[inumber].i_mutex_lock);
 
     return r;
 }
@@ -309,14 +312,25 @@ void *data_block_get(int block_number) {
  * Returns: file handle if successful, -1 otherwise
  */
 int add_to_open_file_table(int inumber, size_t offset) {
+    inode_t *inode = inode_get(inumber);
+
+    if (inode == NULL) {
+        return -1;
+    }
+
+    mutex_lock(&inode->i_mutex_lock);
+
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
         if (free_open_file_entries[i] == FREE) {
             free_open_file_entries[i] = TAKEN;
             open_file_table[i].of_inumber = inumber;
             open_file_table[i].of_offset = offset;
+            mutex_unlock(&inode->i_mutex_lock);
             return i;
         }
     }
+
+    mutex_unlock(&inode->i_mutex_lock);
     return -1;
 }
 
@@ -326,11 +340,26 @@ int add_to_open_file_table(int inumber, size_t offset) {
  * Returns 0 is success, -1 otherwise
  */
 int remove_from_open_file_table(int fhandle) {
+    open_file_entry_t *file = get_open_file_entry(fhandle);
+    if (file == NULL) {
+        return -1;
+    }
+
+    inode_t *inode = inode_get(file->of_inumber);
+    if (inode == NULL) {
+        return -1;
+    }
+
+    mutex_lock(&inode->i_mutex_lock);
+
     if (!valid_file_handle(fhandle) ||
         free_open_file_entries[fhandle] != TAKEN) {
+        mutex_unlock(&inode->i_mutex_lock);
         return -1;
     }
     free_open_file_entries[fhandle] = FREE;
+    mutex_unlock(&inode->i_mutex_lock);
+
     return 0;
 }
 

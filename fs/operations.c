@@ -54,13 +54,17 @@ int tfs_open(char const *name, int flags) {
             return -1;
         }
 
+        mutex_lock(&inode->i_mutex_lock);
+
         /* Trucate (if requested) */
         if (flags & TFS_O_TRUNC) {
             if (inode->i_size > 0) {
                 if (iterate_blocks(inode, 0,
                                    (int)(inode->i_size / BLOCK_SIZE) + 1,
-                                   &data_block_free) == -1)
+                                   &data_block_free) == -1) {
+                    mutex_unlock(&inode->i_mutex_lock);
                     return -1;
+                }
                 inode->i_size = 0;
             }
         }
@@ -70,8 +74,12 @@ int tfs_open(char const *name, int flags) {
         } else {
             offset = 0;
         }
+
+        mutex_unlock(&inode->i_mutex_lock);
+
     } else if (flags & TFS_O_CREAT) {
-        /* The file doesn't exist; the flags specify that it should be created*/
+        /* The file doesn't exist; the flags specify that it should be
+         * created*/
         /* Create inode */
         inum = inode_create(T_FILE);
         if (inum == -1) {
@@ -83,17 +91,16 @@ int tfs_open(char const *name, int flags) {
             return -1;
         }
         offset = 0;
-    } else {
+    } else
         return -1;
-    }
 
     /* Finally, add entry to the open file table and
      * return the corresponding handle */
     return add_to_open_file_table(inum, offset);
 
-    /* Note: for simplification, if file was created with TFS_O_CREAT and there
-     * is an error adding an entry to the open file table, the file is not
-     * opened but it remains created */
+    /* Note: for simplification, if file was created with TFS_O_CREAT and
+     * there is an error adding an entry to the open file table, the file is
+     * not opened but it remains created */
 }
 
 int tfs_close(int fhandle) { return remove_from_open_file_table(fhandle); }
@@ -121,7 +128,6 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     size_t to_write_remaining = to_write;
     if (to_write > 0) {
         write_lock(&inode->i_lock);
-        printf("Vou escrever\n");
 
         if (inode->i_size == 0) {
             /* If empty file, allocate new blocks */
@@ -202,7 +208,6 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
         }
 
         unlock(&inode->i_lock);
-        printf("Ja escrevi\n");
     }
 
     // Increment i_size only of to_write plus offset is bigger then i_size
@@ -224,7 +229,6 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         return -1;
     }
     read_lock(&inode->i_lock);
-    printf("Vou ler\n");
 
     /* Determine how many bytes to read */
     size_t to_read = inode->i_size - file->of_offset;
@@ -303,7 +307,6 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         }
     }
 
-    printf("Acabei de ler\n");
     unlock(&inode->i_lock);
 
     return (ssize_t)to_read;

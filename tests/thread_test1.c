@@ -7,6 +7,11 @@
 
 #define SIZE 256
 
+/*
+    This file tests the use of 3 threads, 2 of which read from a file and 1
+   writes on it.
+*/
+
 typedef struct {
     int f;
     char *output;

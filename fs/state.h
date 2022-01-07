@@ -27,6 +27,7 @@ typedef struct {
     int i_data_direct_blocks[10];
     int i_data_indirect_block;
     pthread_rwlock_t i_lock;
+    pthread_mutex_t i_mutex_lock;
     /* in a real FS, more fields would exist here */
 } inode_t;
 
