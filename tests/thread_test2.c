@@ -11,7 +11,7 @@
 #define PATH "/testfile"
 #define INPUT                                                                  \
     "(Read with an Indian accent) Hello, SO teachers. Can we have 20 pls?"
-#define THREAD_COUNT 10000
+#define THREAD_COUNT 20
 
 void *wrapper_write(void *lol) {
     int f;
