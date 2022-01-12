@@ -162,7 +162,7 @@ int inode_delete(int inumber) {
                            (int)(inode_table[inumber].i_size / BLOCK_SIZE) + 1,
                            &data_block_free);
 
-    unlock(&inode_table[inumber].i_lock);
+    rw_unlock(&inode_table[inumber].i_lock);
 
     destroy_rwlock(&inode_table[inumber].i_lock);
     destroy_mlock(&inode_table[inumber].i_mutex_lock);

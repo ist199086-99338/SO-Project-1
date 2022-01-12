@@ -133,7 +133,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             /* If empty file, allocate new blocks */
             if (iterate_blocks(inode, 0, (int)(to_write / BLOCK_SIZE) + 1,
                                &allocate_block_aux) == -1) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1;
             }
         }
@@ -146,20 +146,20 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             if (inode->i_data_direct_blocks[current] == -1)
                 if ((inode->i_data_direct_blocks[current] =
                          data_block_alloc()) == -1) {
-                    unlock(&inode->i_lock);
+                    rw_unlock(&inode->i_lock);
                     return -1;
                 }
 
             void *block = data_block_get(inode->i_data_direct_blocks[current]);
             if (block == NULL) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1;
             }
 
             if (write_to_block(&file->of_offset, initial_offset,
                                &to_write_remaining, block, buffer,
                                to_write - to_write_remaining, inode) == -1) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1;
             }
 
@@ -173,14 +173,14 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
         // Check if the inode has an indirect block allocated
         if (inode->i_data_indirect_block == -1)
             if ((inode->i_data_indirect_block = data_block_alloc()) == -1) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1;
             }
 
         int *indirect_block =
             (int *)data_block_get(inode->i_data_indirect_block);
         if (indirect_block == NULL) {
-            unlock(&inode->i_lock);
+            rw_unlock(&inode->i_lock);
             return -1;
         }
         while (current < end) {
@@ -188,7 +188,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
 
             void *block = data_block_get(indirection_block_index);
             if (block == NULL) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1;
             }
 
@@ -196,7 +196,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             if (write_to_block(&file->of_offset, initial_offset,
                                &to_write_remaining, block, buffer,
                                to_write - to_write_remaining, inode) == -1) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1; // Hol up, wait a minute, something aint right.
             }
 
@@ -206,7 +206,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
             current++;
         }
 
-        unlock(&inode->i_lock);
+        rw_unlock(&inode->i_lock);
     }
 
     // Increment i_size only of to_write plus offset is bigger then i_size
@@ -246,19 +246,19 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
             if (inode->i_data_direct_blocks[current] == -1)
                 if ((inode->i_data_direct_blocks[current] =
                          data_block_alloc()) == -1) {
-                    unlock(&inode->i_lock);
+                    rw_unlock(&inode->i_lock);
                     return -1;
                 }
 
             void *block = data_block_get(inode->i_data_direct_blocks[current]);
             if (block == NULL) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1;
             }
 
             if (read_from_block(initial_offset, &to_read_remaining, block,
                                 buffer, to_read - to_read_remaining) == -1) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1;
             }
 
@@ -272,14 +272,14 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         // Check if the inode has an indirect block allocated
         if (inode->i_data_indirect_block == -1)
             if ((inode->i_data_indirect_block = data_block_alloc()) == -1) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1;
             }
 
         int *indirect_block =
             (int *)data_block_get(inode->i_data_indirect_block);
         if (indirect_block == NULL) {
-            unlock(&inode->i_lock);
+            rw_unlock(&inode->i_lock);
             return -1;
         }
 
@@ -288,14 +288,14 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
 
             void *block = data_block_get(indirection_block_index);
             if (block == NULL) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1;
             }
 
             read_lock(&inode->i_lock);
             if (read_from_block(initial_offset, &to_read_remaining, block,
                                 buffer, to_read - to_read_remaining) == -1) {
-                unlock(&inode->i_lock);
+                rw_unlock(&inode->i_lock);
                 return -1; // Hol up, wait a minute, something aint right.
             }
 
@@ -306,7 +306,7 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
         }
     }
 
-    unlock(&inode->i_lock);
+    rw_unlock(&inode->i_lock);
 
     return (ssize_t)to_read;
 }
