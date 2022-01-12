@@ -88,6 +88,7 @@ void state_destroy() { /* nothing to do */
  * Returns:
  *  new i-node's number if successfully created, -1 otherwise
  */
+//TODO: add mutex
 int inode_create(inode_type n_type) {
     for (int inumber = 0; inumber < INODE_TABLE_SIZE; inumber++) {
         if ((inumber * (int)sizeof(allocation_state_t) % BLOCK_SIZE) == 0) {
@@ -132,7 +133,6 @@ int inode_create(inode_type n_type) {
             }
 
             init_rwlock(&inode_table[inumber].i_lock);
-            init_mlock(&inode_table[inumber].i_mutex_lock);
             return inumber;
         }
     }
@@ -165,7 +165,6 @@ int inode_delete(int inumber) {
     rw_unlock(&inode_table[inumber].i_lock);
 
     destroy_rwlock(&inode_table[inumber].i_lock);
-    destroy_mlock(&inode_table[inumber].i_mutex_lock);
 
     return r;
 }
@@ -318,6 +317,7 @@ int add_to_open_file_table(int inumber, size_t offset) {
         return -1;
     }
 
+    //fazer global
     mutex_lock(&inode->i_mutex_lock);
 
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
@@ -325,11 +325,14 @@ int add_to_open_file_table(int inumber, size_t offset) {
             free_open_file_entries[i] = TAKEN;
             open_file_table[i].of_inumber = inumber;
             open_file_table[i].of_offset = offset;
+            init_mlock(open_file_table[i].i_mutex_lock);
+    //fazer global
             mutex_unlock(&inode->i_mutex_lock);
             return i;
         }
     }
 
+    //fazer global
     mutex_unlock(&inode->i_mutex_lock);
     return -1;
 }
@@ -358,6 +361,7 @@ int remove_from_open_file_table(int fhandle) {
         return -1;
     }
     free_open_file_entries[fhandle] = FREE;
+    destroy_mlock(*file->i_mutex_lock);
     mutex_unlock(&inode->i_mutex_lock);
 
     return 0;
