@@ -348,6 +348,8 @@ int remove_from_open_file_table(int fhandle) {
         return -1;
     }
 
+    write_lock(&file->of_lock);
+
     inode_t *inode = inode_get(file->of_inumber);
     if (inode == NULL) {
         return -1;
@@ -361,7 +363,8 @@ int remove_from_open_file_table(int fhandle) {
         return -1;
     }
     free_open_file_entries[fhandle] = FREE;
-    destroy_mlock(*file->i_mutex_lock);
+    rw_unlock(&file->of_lock);
+    destroy_mlock(&file->of_lock);
     mutex_unlock(&inode->i_mutex_lock);
 
     return 0;
