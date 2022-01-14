@@ -11,19 +11,23 @@
 #define PATH "/testfile"
 #define INPUT                                                                  \
     "(Read with an Indian accent) Hello, SO teachers. Can we have 20 pls?"
-#define THREAD_COUNT 20
+#define THREAD_COUNT 10000
 
 void *wrapper_write(void *lol) {
     int f;
+    
+    if (lol != NULL)
+		lol = NULL;
 
-    assert((f = tfs_open(PATH, TFS_O_TRUNC)) != -1);
+    // tfs_open will return -1 if the open file count is more then 20, which is normal and this test takes that into account
+    f = tfs_open(PATH, TFS_O_TRUNC);
 
-    if (lol == NULL)
-        lol = NULL;
+    // if f == -1, then the file wasnt opened and we cant write to it
+    if (f != -1)
+        assert(tfs_write(f, INPUT, strlen(INPUT) + 1) != -1);
 
-    assert(tfs_write(f, INPUT, strlen(INPUT) + 1) != -1);
-
-    assert(tfs_close(f) != -1);
+    if (f != -1)
+        assert(tfs_close(f) != -1);
 
     return NULL;
 }

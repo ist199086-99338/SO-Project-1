@@ -345,11 +345,11 @@ int add_to_open_file_table(int inumber, size_t offset) {
         return -1;
     }
 
-    // TODO: Check lock type (Fixed to compile)
-    write_lock(&inode->i_lock);
-
     // Lock it so that no 2 threads can take the same open_file_entry
     mutex_lock(&free_open_file_entries_lock);
+
+    // TODO: Check lock type (Fixed to compile)
+    write_lock(&inode->i_lock);
 
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
         if (free_open_file_entries[i] == FREE) {
@@ -384,8 +384,6 @@ int remove_from_open_file_table(int fhandle) {
     if (file == NULL) {
         return -1;
     }
-
-    mutex_lock(&file->of_lock);
 
     inode_t *inode = inode_get(file->of_inumber);
     if (inode == NULL) {
