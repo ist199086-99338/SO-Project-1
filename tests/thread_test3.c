@@ -7,24 +7,27 @@
 
 /*
     This file tests that only 20 files can be open at the same time,
-	with multiple threads testing that limit
+        with multiple threads testing that limit
 */
 #define PATH "/testfile"
-#define THREAD_COUNT 10000
+#define THREAD_COUNT 100
 
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 int count = 0;
 
 void *wrapper_write(void *lol) {
     int f;
 
-	if (lol != NULL)
-		lol = NULL;
+    if (lol != NULL)
+        lol = NULL;
 
     // tfs_open can return -1 if more than 20 files are open, which is normal
     f = tfs_open(PATH, TFS_O_TRUNC);
 
-    if(f != -1)
+    pthread_mutex_lock(&lock);
+    if (f != -1)
         count++;
+    pthread_mutex_unlock(&lock);
 
     return NULL;
 }
@@ -47,10 +50,12 @@ int main() {
         assert(pthread_join(threads[i], NULL) == 0);
     }
 
-	// Only 20 files should have been opened by the threads
-	assert(count == 20);
+    // Only 20 files should have been opened by the threads
+    assert(count == 20);
 
     assert(tfs_destroy() != -1);
+
+    pthread_mutex_destroy(&lock);
 
     printf("thread_test3: All good!\n");
 

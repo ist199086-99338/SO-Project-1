@@ -64,7 +64,7 @@ int main() {
         "ullamcorper ipsum rutrum nunc. Nunc nonummy metus. Vestibulum ";
 
     char output1[strlen(input) + 1];
-    char *input2 = "Hello modafaquer";
+    char *input2 = "Hello, SO teachers!";
     char output2[9999];
     char *path = "/f1";
 
@@ -102,9 +102,7 @@ int main() {
     f = tfs_open(path, 0);
 
     tfs_read(f, output2, strlen(input2) + 1);
-    if (strcmp(input2, output2) == 0 || strcmp(input, output2) == 0) {
-        printf("%s\n", output2);
-    };
+    assert(strcmp(input2, output2) == 0 || strcmp(input, output2) == 0);
 
     assert(tfs_close(f) != -1);
 

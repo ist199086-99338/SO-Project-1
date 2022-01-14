@@ -9,17 +9,17 @@
     This file tests multiple threads that will be writting on the same file
 */
 #define PATH "/testfile"
-#define INPUT                                                                  \
-    "(Read with an Indian accent) Hello, SO teachers. Can we have 20 pls?"
-#define THREAD_COUNT 10000
+#define INPUT "Hello, SO teachers. Can we have 20 pls?"
+#define THREAD_COUNT 100
 
 void *wrapper_write(void *lol) {
     int f;
-    
-    if (lol != NULL)
-		lol = NULL;
 
-    // tfs_open will return -1 if the open file count is more then 20, which is normal and this test takes that into account
+    if (lol != NULL)
+        lol = NULL;
+
+    // tfs_open will return -1 if the open file count is more then 20, which is
+    // normal and this test takes that into account
     f = tfs_open(PATH, TFS_O_TRUNC);
 
     // if f == -1, then the file wasnt opened and we cant write to it
@@ -34,9 +34,7 @@ void *wrapper_write(void *lol) {
 
 int main() {
 
-    char *input =
-        "(Read with an Indian accent) Hello, SO teachers. Can we have 20 pls?";
-    char buffer[strlen(input) + 1];
+    char buffer[strlen(INPUT) + 1];
 
     assert(tfs_init() != -1);
 
@@ -56,11 +54,11 @@ int main() {
 
     // Read the file after all the write operations are done
     assert((f = tfs_open(PATH, TFS_O_START)) != -1);
-    assert(tfs_read(f, buffer, strlen(input) + 1) != -1);
+    assert(tfs_read(f, buffer, strlen(INPUT) + 1) != -1);
     assert(tfs_close(f) != -1);
 
     // Check if the buffer equals the input of the threads
-    assert(strcmp(buffer, input) == 0);
+    assert(strcmp(buffer, INPUT) == 0);
 
     assert(tfs_destroy() != -1);
 
