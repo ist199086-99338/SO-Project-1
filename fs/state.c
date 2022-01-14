@@ -17,6 +17,9 @@ static char freeinode_ts[INODE_TABLE_SIZE];
 static char fs_data[BLOCK_SIZE * DATA_BLOCKS];
 static char free_blocks[DATA_BLOCKS];
 
+/* file_entries Lock */
+pthread_mutex_t free_open_file_entries_lock = PTHREAD_MUTEX_INITIALIZER;
+
 /* Volatile FS state */
 
 static open_file_entry_t open_file_table[MAX_OPEN_FILES];
@@ -88,7 +91,7 @@ void state_destroy() { /* nothing to do */
  * Returns:
  *  new i-node's number if successfully created, -1 otherwise
  */
-//TODO: add mutex
+// TODO: add mutex
 int inode_create(inode_type n_type) {
     for (int inumber = 0; inumber < INODE_TABLE_SIZE; inumber++) {
         if ((inumber * (int)sizeof(allocation_state_t) % BLOCK_SIZE) == 0) {
@@ -317,23 +320,28 @@ int add_to_open_file_table(int inumber, size_t offset) {
         return -1;
     }
 
-    //fazer global
-    mutex_lock(&inode->i_mutex_lock);
+    // TODO: Check lock type (Fixed to compile)
+    write_lock(&inode->i_lock);
 
+    // Lock it so that no 2 threads can take the same open_file_entry
+    mutex_lock(&free_open_file_entries_lock);
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
         if (free_open_file_entries[i] == FREE) {
             free_open_file_entries[i] = TAKEN;
+
+            // As soon as the file entry changes to TAKEN the lock can be freed
+            mutex_unlock(&free_open_file_entries_lock);
             open_file_table[i].of_inumber = inumber;
             open_file_table[i].of_offset = offset;
-            init_mlock(open_file_table[i].i_mutex_lock);
-    //fazer global
-            mutex_unlock(&inode->i_mutex_lock);
+            init_rwlock(&open_file_table[i].of_lock);
+            // fazer global
+            rw_unlock(&inode->i_lock);
             return i;
         }
     }
 
-    //fazer global
-    mutex_unlock(&inode->i_mutex_lock);
+    mutex_unlock(&free_open_file_entries_lock);
+    rw_unlock(&inode->i_lock);
     return -1;
 }
 
@@ -355,17 +363,17 @@ int remove_from_open_file_table(int fhandle) {
         return -1;
     }
 
-    mutex_lock(&inode->i_mutex_lock);
+    write_lock(&inode->i_lock);
 
     if (!valid_file_handle(fhandle) ||
         free_open_file_entries[fhandle] != TAKEN) {
-        mutex_unlock(&inode->i_mutex_lock);
+        rw_unlock(&inode->i_lock);
         return -1;
     }
     free_open_file_entries[fhandle] = FREE;
     rw_unlock(&file->of_lock);
-    destroy_mlock(&file->of_lock);
-    mutex_unlock(&inode->i_mutex_lock);
+    destroy_rwlock(&file->of_lock);
+    rw_unlock(&inode->i_lock);
 
     return 0;
 }

@@ -54,7 +54,8 @@ int tfs_open(char const *name, int flags) {
             return -1;
         }
 
-        mutex_lock(&inode->i_mutex_lock);
+        // TODO: Fixed in order to compile, check lock type
+        write_lock(&inode->i_lock);
 
         /* Trucate (if requested) */
         if (flags & TFS_O_TRUNC) {
@@ -62,7 +63,7 @@ int tfs_open(char const *name, int flags) {
                 if (iterate_blocks(inode, 0,
                                    (int)(inode->i_size / BLOCK_SIZE) + 1,
                                    &data_block_free) == -1) {
-                    mutex_unlock(&inode->i_mutex_lock);
+                    rw_unlock(&inode->i_lock);
                     return -1;
                 }
                 inode->i_size = 0;
@@ -75,7 +76,7 @@ int tfs_open(char const *name, int flags) {
             offset = 0;
         }
 
-        mutex_unlock(&inode->i_mutex_lock);
+        rw_unlock(&inode->i_lock);
 
     } else if (flags & TFS_O_CREAT) {
         /* The file doesn't exist; the flags specify that it should be
