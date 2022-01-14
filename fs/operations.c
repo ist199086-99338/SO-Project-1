@@ -206,7 +206,6 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
                 return -1;
             }
 
-            write_lock(&inode->i_lock);
             if (write_to_block(&file->of_offset, initial_offset,
                                &to_write_remaining, block, buffer,
                                to_write - to_write_remaining, inode) == -1) {
@@ -316,7 +315,6 @@ ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
                 return -1;
             }
 
-            read_lock(&inode->i_lock);
             if (read_from_block(initial_offset, &to_read_remaining, block,
                                 buffer, to_read - to_read_remaining) == -1) {
                 rw_unlock(&inode->i_lock);
